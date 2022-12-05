@@ -1,0 +1,92 @@
+using System;
+using System.IO;
+using System.Text.Json;
+using System.Collections.Generic;
+
+namespace NewFlattenJson
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string filePath = @"D:\C#Projects\NestedJson.json";
+            string jsonString = File.ReadAllText(filePath);
+
+            if (jsonString.Trim().StartsWith('['))
+            {
+                var jsonFlattened = new List<Dictionary<string, object>>();
+                var jsonArray = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonString);
+                
+                foreach(var dict in jsonArray)
+                {
+                    JsonFlatten j = new JsonFlatten();
+                    jsonFlattened.Add(j.Flatten(JsonSerializer.Serialize(dict)));
+                }
+
+                foreach(var dict in jsonFlattened)
+                {
+                    foreach(var entry in dict)
+                    {
+                        Console.WriteLine(entry.Key + "  :  " + entry.Value);
+                    }
+                    Console.WriteLine("--------------------------------------");
+                }
+            }
+            else
+            {
+                JsonFlatten f = new JsonFlatten();
+                var json = f.Flatten(jsonString);
+                foreach (var elem in json)
+                {
+                    Console.WriteLine(elem.Key + "  :  " + elem.Value);
+                }
+            }
+        }
+    } 
+
+    public  class JsonFlatten
+    {
+        public  Dictionary<string, object> Flatten(string jsonString)
+        {
+            FlattenDictionary(jsonString);
+            return Collector;
+        }
+
+        public  void FlattenDictionary(string jsonString, string prefix = "")
+        {
+            var jsonDictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString.Trim());
+            
+            foreach (var entry in jsonDictionary)
+            {
+                string entryValue = entry.Value.ToString().Trim();
+                if (entryValue.StartsWith('['))
+                {
+                    var jsonArray = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(entryValue);
+
+                    for (int i = 0; i < jsonArray.Count; i++)
+                    {
+                        foreach (var entry2 in jsonArray[i])
+                        {
+                            FlattenDictionary(JsonSerializer.Serialize(jsonArray[i]), prefix + (prefix == "" ? "" : ".") + entry.Key + "[" + i.ToString() + "]");
+                        }
+                    }
+                }
+                else if (entryValue.StartsWith('{'))
+                {
+                    FlattenDictionary(entryValue, prefix + (prefix == "" ? "" : ".") + entry.Key);
+                }
+                else
+                {
+                    this.Collector[prefix + (prefix == "" ? "" : ".") + entry.Key] = entry.Value;
+                }
+            }
+        }
+
+        private  Dictionary<string, object> element = new Dictionary<string, object>();
+        public  Dictionary<string, object> Collector
+        {
+            get { return element; }
+            set { element = value; }
+        }
+    }
+}
